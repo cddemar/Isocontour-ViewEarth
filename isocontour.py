@@ -63,9 +63,11 @@ def generate_actors(data, texture):
     
     
     ctf = vtk.vtkColorTransferFunction()
-    ctf.AddRGBPoint(1, 31/255, 162/255, 255/255)
-    ctf.AddRGBPoint(10, 1, 1, 1)
-    ctf.AddRGBPoint(19, 255/255, 251/255, 19/255)
+    ctf.AddRGBPoint(-10000, 31/255, 162/255, 255/255)
+    ctf.AddRGBPoint(-1, 1, 1, 1)
+    ctf.AddRGBPoint(0, 255/255, 47/255, 61/255)
+    ctf.AddRGBPoint(1, 1, 1, 1)
+    ctf.AddRGBPoint(8000, 255/255, 251/255, 19/255)
     
     # tubes
     global tube
