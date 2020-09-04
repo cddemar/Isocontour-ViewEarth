@@ -8,6 +8,7 @@ Created on Fri Aug 14 11:58:01 2020
 import vtk
 
 warp = vtk.vtkWarpScalar()
+tube = vtk.vtkTubeFilter()
 
 def get_program_parameters():
     import argparse
@@ -53,11 +54,41 @@ def generate_texture(texture_file):
     return texture
     
 
-def generate_actor(data, texture):
+def generate_actors(data, texture):
     # Warp the input data.
     global warp
     warp.SetInputConnection(data.GetOutputPort())
     warp.SetScaleFactor(0)
+    
+    # contour
+    iso = vtk.vtkContourFilter()
+    iso.SetInputConnection(warp.GetOutputPort())
+    iso.GenerateValues(19, -10000, 8000)
+    
+    
+    ctf = vtk.vtkColorTransferFunction()
+    ctf.AddRGBPoint(-10000, 31/255, 162/255, 255/255)
+    ctf.AddRGBPoint(-1, 1, 1, 1)
+    ctf.AddRGBPoint(0, 255/255, 47/255, 61/255)
+    ctf.AddRGBPoint(1, 1, 1, 1)
+    ctf.AddRGBPoint(8000, 255/255, 251/255, 19/255)
+    
+    # tubes
+    global tube
+    tube.SetInputConnection(iso.GetOutputPort())
+    tube.SetRadius(2000)
+    tube.SetNumberOfSides(5)
+    
+    # Add iso surface mapper.
+    isoMapper = vtk.vtkDataSetMapper()
+    isoMapper.SetLookupTable(ctf)
+    isoMapper.SetInputConnection(tube.GetOutputPort())
+    isoMapper.SetScalarRange(0, 255)
+    #mapper.ScalarVisibilityOff()
+    
+    # Generate iso surface actor from iso surface mapper.
+    isoActor = vtk.vtkActor()
+    isoActor.SetMapper(isoMapper)
     
     # Add mapper.
     mapper = vtk.vtkDataSetMapper()
@@ -65,13 +96,14 @@ def generate_actor(data, texture):
     mapper.SetScalarRange(0, 255)
     mapper.ScalarVisibilityOff()
     
-    # Generate actor from mapper.
+    # generate actor
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
     actor.SetTexture(texture)
-    return actor
+    
+    return [actor, isoActor]
 
-def generate_slide_bar():
+def generate_warp_slide_bar():
     # Slidebar colors
     red_r = 224/255
     red_g = 69/255
@@ -100,20 +132,63 @@ def generate_slide_bar():
     
     # Set coordinates.
     slide_bar.GetPoint1Coordinate().SetCoordinateSystemToNormalizedDisplay()
+    slide_bar.GetPoint1Coordinate().SetValue(0.02, 0.1)
+    
+    slide_bar.GetPoint2Coordinate().SetCoordinateSystemToNormalizedDisplay()
+    slide_bar.GetPoint2Coordinate().SetValue(0.22 , 0.1)
+    return slide_bar
+
+def warp_custom_callback(obj, event):
+    # print("interaction called")
+    value = int (obj.GetRepresentation().GetValue())
+    global warp
+    warp.SetScaleFactor(value)
+    warp.Update()
+    
+
+def generate_tube_slide_bar():
+    # Slidebar colors
+    red_r = 224/255
+    red_g = 69/255
+    red_b = 85/255
+    green_r = 70/255
+    green_g = 224/255
+    green_b = 105/255
+    white = 242/255
+    
+    # Create Slidebar
+    slide_bar = vtk.vtkSliderRepresentation2D()
+    
+    # Set range and title.
+    slide_bar.SetMinimumValue(0)
+    slide_bar.SetMaximumValue(10000)
+    slide_bar.SetValue(2000)
+    slide_bar.SetTitleText("Tube Radius")
+    
+    # Set colors.
+    slide_bar.GetSliderProperty().SetColor(red_r, red_g, red_b)
+    slide_bar.GetTitleProperty().SetColor(white, white, white)
+    slide_bar.GetLabelProperty().SetColor(red_r, red_g, red_b)
+    slide_bar.GetSelectedProperty().SetColor(green_r, green_g, green_b)
+    slide_bar.GetTubeProperty().SetColor(white, white, white)
+    slide_bar.GetCapProperty().SetColor(red_r, red_g, red_b)
+    
+    # Set coordinates.
+    slide_bar.GetPoint1Coordinate().SetCoordinateSystemToNormalizedDisplay()
     slide_bar.GetPoint1Coordinate().SetValue(0.78, 0.1)
     
     slide_bar.GetPoint2Coordinate().SetCoordinateSystemToNormalizedDisplay()
     slide_bar.GetPoint2Coordinate().SetValue(0.98 , 0.1)
     return slide_bar
 
-def custom_callback(obj, event):
+def tube_custom_callback(obj, event):
     # print("interaction called")
     value = int (obj.GetRepresentation().GetValue())
-    global warp
-    warp.SetScaleFactor(value)
-    warp.Update()
+    global tube
+    tube.SetRadius(value)
+    tube.Update()
 
-def generate_gui(actor):
+def generate_gui(actors):
     # Create renderer stuff
     renderer = vtk.vtkRenderer()
     renderer_window = vtk.vtkRenderWindow()
@@ -121,17 +196,25 @@ def generate_gui(actor):
     renderer_window_interactor = vtk.vtkRenderWindowInteractor()
     renderer_window_interactor.SetRenderWindow(renderer_window)
     
-    # Add slide bar   
-    slide_bar = generate_slide_bar()
-    slider_widget = vtk.vtkSliderWidget()
-    slider_widget.SetInteractor(renderer_window_interactor)
-    slider_widget.SetRepresentation(slide_bar)
-    slider_widget.AddObserver("InteractionEvent", custom_callback)
-    slider_widget.EnabledOn()
+    # Add slide bars   
+    warp_slide_bar = generate_warp_slide_bar()
+    warp_slider_widget = vtk.vtkSliderWidget()
+    warp_slider_widget.SetInteractor(renderer_window_interactor)
+    warp_slider_widget.SetRepresentation(warp_slide_bar)
+    warp_slider_widget.AddObserver("InteractionEvent", warp_custom_callback)
+    warp_slider_widget.EnabledOn()
+    
+    tube_slide_bar = generate_tube_slide_bar()
+    tube_slider_widget = vtk.vtkSliderWidget()
+    tube_slider_widget.SetInteractor(renderer_window_interactor)
+    tube_slider_widget.SetRepresentation(tube_slide_bar)
+    tube_slider_widget.AddObserver("InteractionEvent", tube_custom_callback)
+    tube_slider_widget.EnabledOn()
 
     
     # Add the actor and camera to the renderer, set background and size
-    renderer.AddActor(actor)
+    for index, actor in enumerate(actors):
+        renderer.AddActor(actor)
     renderer.ResetCamera()
     renderer.GetActiveCamera().Azimuth(180)
     renderer.GetActiveCamera().Roll(180)
@@ -163,9 +246,9 @@ def main():
         texture = generate_texture(texture_file)        
         if(texture):      
             # Generate actor.
-            actor = generate_actor(data, texture)
+            actors = generate_actors(data, texture)
             # Generate GUI
-            generate_gui(actor)
+            generate_gui(actors)
         else:
             print('The texture file was not found or the file provided does not match the .jpg extension.')
     else:

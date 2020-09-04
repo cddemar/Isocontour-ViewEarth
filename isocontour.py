@@ -8,7 +8,6 @@ Created on Fri Aug 14 11:58:01 2020
 import vtk
 
 tube = vtk.vtkTubeFilter()
-warp = vtk.vtkWarpScalar()
 
 def get_program_parameters():
     import argparse
