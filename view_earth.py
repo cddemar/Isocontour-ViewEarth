@@ -101,7 +101,8 @@ def generate_actors(data, texture):
     actor.SetMapper(mapper)
     actor.SetTexture(texture)
     
-    return [actor, isoActor]
+    # Included CTF so it can be set to the scalar bar SetLookUpTable 
+    return [actor, isoActor, ctf]
 
 def generate_warp_slide_bar():
     # Slidebar colors
@@ -205,13 +206,33 @@ def generate_gui(actors):
     warp_slider_widget.EnabledOn()
     
     tube_slide_bar = generate_tube_slide_bar()
+    tube_slide_bar.SetLabelFormat("%-#6.2f")
     tube_slider_widget = vtk.vtkSliderWidget()
     tube_slider_widget.SetInteractor(renderer_window_interactor)
     tube_slider_widget.SetRepresentation(tube_slide_bar)
     tube_slider_widget.AddObserver("InteractionEvent", tube_custom_callback)
     tube_slider_widget.EnabledOn()
 
+    # Attempt to create scalar bar
+    # Create the scalar_bar
+    scalar_bar = vtk.vtkScalarBarActor()
+    scalar_bar.SetOrientationToHorizontal()
+    # Pops CTF from the actors' list
+    scalar_bar.SetLookupTable(actors.pop())
+    scalar_bar.SetNumberOfLabels(3)
+    scalar_bar.SetLabelFormat("%-6.0f")
+    # Estas instrucciones no las está tomando, no estoy muy seguro de la razón
+    scalar_bar.SetPosition(0.1, 0.89)
+    scalar_bar.SetHeight(0.08)
+    scalar_bar.SetWidth(0.7)
     
+    # Create the scalar_bar_widget
+    scalar_bar_widget = vtk.vtkScalarBarWidget()
+    scalar_bar_widget.SetInteractor(renderer_window_interactor)
+    scalar_bar_widget.SetScalarBarActor(scalar_bar)
+    scalar_bar_widget.On()
+    # Ends attempt to create scalar bar    
+
     # Add the actor and camera to the renderer, set background and size
     for index, actor in enumerate(actors):
         renderer.AddActor(actor)
